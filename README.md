@@ -222,3 +222,171 @@ This architecture mirrors how real enterprise teams build ML platforms:
 * DevOps is first-class, not an afterthought
 * Tradeoffs are explicit
 
+PYTHON CODE 
+
+1️ FastAPI inference service 
+
+src/serving/api.py
+
+from fastapi import FastAPI
+from prometheus_client import Counter, Histogram, generate_latest
+import time
+import joblib
+
+app = FastAPI(title="Enterprise ML API")
+
+REQUEST_COUNT = Counter(
+    "api_requests_total",
+    "Total API requests",
+    ["endpoint"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "api_request_latency_seconds",
+    "API request latency"
+)
+
+model = joblib.load("model/model.joblib")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/predict")
+@REQUEST_LATENCY.time()
+def predict(payload: dict):
+    REQUEST_COUNT.labels(endpoint="/predict").inc()
+    features = [payload["value"]]
+    prediction = model.predict([features])[0]
+    return {"prediction": int(prediction)}
+
+
+@app.get("/metrics")
+def metrics():
+    return generate_latest()
+
+
+This is deployable, observable, and testable.
+
+2️ Training pipeline (REAL)
+
+src/training/train.py
+
+import joblib
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+
+def train():
+    data = load_iris()
+    X, y = data.data, data.target
+
+    model = RandomForestClassifier(n_estimators=100)
+    model.fit(X, y)
+
+    joblib.dump(model, "model/model.joblib")
+
+if __name__ == "__main__":
+    train()
+
+
+Simple on purpose.
+We prove pipeline correctness first.
+
+3️ Dockerfile for API (REAL)
+
+docker/Dockerfile.api
+
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+COPY model/ ./model/
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.serving.api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+4️ Docker Compose (LOCAL DEVOPS PARITY)
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+
+
+This matches enterprise dev parity practices.
+
+ CI PIPELINE (REAL, STRICT)
+
+.github/workflows/ci.yml
+
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest
+
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile.api .
+
+
+
+
+ Terraform (Azure example — REAL)
+
+infra/terraform/azure/main.tf
+
+provider "azurerm" {
+  features {}
+}
+
+resource "azurerm_resource_group" "rg" {
+  name     = "ml-platform-rg"
+  location = "West Europe"
+}
+
+resource "azurerm_container_group" "api" {
+  name                = "ml-api"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  os_type             = "Linux"
+
+  container {
+    name   = "api"
+    image  = "yourdockerhub/ml-api:latest"
+    cpu    = "1"
+    memory = "2"
+
+    ports {
+      port     = 8000
+      protocol = "TCP"
+    }
+  }
+}
+
+
