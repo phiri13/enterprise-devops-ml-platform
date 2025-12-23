@@ -1,3 +1,18 @@
+ 🚀 Deployment Status (Live)
+
+This service has been successfully deployed and exposed on Microsoft Azure.
+
+**Environment**
+- Azure Ubuntu VM (24.04 LTS)
+- Public IP via Azure Networking
+- Network Security Group (NSG) configured for port 8000
+- Linux firewall (UFW) configured
+
+**Live Health Check**
+```bash
+curl http://<public-ip>:8000/health
+
+
 # Enterprise DevOps ML Platform
 
 ## Overview
