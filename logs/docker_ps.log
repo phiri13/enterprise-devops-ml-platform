@@ -1,4 +1,4 @@
-CONTAINER ID   IMAGE                               COMMAND                  CREATED          STATUS          PORTS                                         NAMES
-19e59e0f2065   prom/prometheus:latest              "/bin/prometheus --c…"   54 minutes ago   Up 54 minutes   0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp   enterprise-devops-ml-platform_prometheus_1
-cdbb0e86bdd6   enterprise-devops-ml-platform_api   "uvicorn src.serving…"   54 minutes ago   Up 51 minutes   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   enterprise-devops-ml-platform_api_1
-cb7e863703da   grafana/grafana:latest              "/run.sh"                54 minutes ago   Up 54 minutes   0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp   enterprise-devops-ml-platform_grafana_1
+CONTAINER ID   IMAGE                               COMMAND                  CREATED             STATUS             PORTS                                         NAMES
+19e59e0f2065   prom/prometheus:latest              "/bin/prometheus --c…"   About an hour ago   Up About an hour   0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp   enterprise-devops-ml-platform_prometheus_1
+cdbb0e86bdd6   enterprise-devops-ml-platform_api   "uvicorn src.serving…"   About an hour ago   Up 57 minutes      0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   enterprise-devops-ml-platform_api_1
+cb7e863703da   grafana/grafana:latest              "/run.sh"                About an hour ago   Up About an hour   0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp   enterprise-devops-ml-platform_grafana_1
