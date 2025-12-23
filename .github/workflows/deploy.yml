@@ -13,7 +13,11 @@ jobs:
     env:
       VM_IP: ${{ secrets.VM_IP }}
       SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_KEY: ${{ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60wKMR2Oc4KejgJoe7PpiTDT3lDN1r }}
+      SSH_KEY: ${{ -----BEGIN OPENSSH PRIVATE KEY-----
+AAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60wKMR2Oc4KejgJoe7PpiTDT3lDN1r...
+...
+-----END OPENSSH PRIVATE KEY-----
+ }}
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
 
     steps:
@@ -23,7 +27,11 @@ jobs:
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
-          ssh-private-key: ${{ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60wKMR2Oc4KejgJoe7PpiTDT3lDN1r }}
+          ssh-private-key: ${{ -----BEGIN OPENSSH PRIVATE KEY-----
+AAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60wKMR2Oc4KejgJoe7PpiTDT3lDN1r...
+...
+-----END OPENSSH PRIVATE KEY-----
+ }}
 
       - name: Deploy to VM
         run: |
