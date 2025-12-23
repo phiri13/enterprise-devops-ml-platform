@@ -1,45 +1,58 @@
-param(
-    [string]$VM_IP,
-    [string]$SSH_USER,
-    [string]$SSH_KEY
-)
+name: CI/CD - FastAPI Deployment
 
-Write-Host "=== CI/CD FastAPI Deployment ==="
-Write-Host "Target VM: $SSH_USER@$VM_IP"
-Write-Host "SSH Key: $SSH_KEY"
+on:
+  push:
+    branches:
+      - feature/devops-platform
+  workflow_dispatch:
 
-# --- Step 1: Connect and deploy ---
-ssh -i $SSH_KEY -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" "bash -s" << 'EOF'
-  set -e
-  cd ~/enterprise-devops-ml-platform
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-  # Ensure remote uses SSH instead of HTTPS
-  git remote set-url origin git@github.com:phiri13/enterprise-devops-ml-platform.git
+    env:
+      VM_IP: ${{ secrets.VM_IP }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_KEY: ${{ secrets.SSH_KEY }}
+      REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
 
-  git reset --hard
-  git pull origin feature/devops-platform
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  # Kill any process using port 8000
-  PID=$(lsof -ti:8000)
-  if [ ! -z "$PID" ]; then
-    echo "Killing processes on port 8000: $PID"
-    kill -9 $PID
-  fi
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ env.SSH_KEY }}
 
-  # Restart Docker
-  docker-compose down || true
-  docker-compose up -d --build
+      - name: Deploy to VM
+        run: |
+          echo "Connecting to VM and updating code..."
+          ssh -o StrictHostKeyChecking=no $SSH_USER@$VM_IP << 'EOF'
+            set -e
+            cd ~/enterprise-devops-ml-platform
+            git reset --hard
+            git pull origin feature/devops-platform
 
-  # Run deployment script
-  ./deployment.sh
+            # Kill any process using port 8000
+            PID=$(lsof -ti:8000)
+            if [ ! -z "$PID" ]; then
+              echo "Killing processes on port 8000: $PID"
+              kill -9 $PID
+            fi
+
+            # Stop Docker if running
+            docker-compose down || true
+
+            # Build and start containers
+            docker-compose up -d --build
+
+            # Run deployment script
+            ./deployment.sh
 EOF
 
-# --- Step 2: Confirm deployment ---
-try {
-    $url = "http://$VM_IP:8000/health"
-    $health = Invoke-RestMethod -Uri $url -TimeoutSec 10
-    Write-Host "Health check response:" $health
-    Write-Host "✅ Deployment complete."
-} catch {
-    Write-Host "❌ Health check failed:" $_.Exception.Message
-}
+      - name: Confirm deployment
+        run: |
+          echo "Checking health endpoint..."
+          curl -s http://$VM_IP:8000/health
+          echo "✅ Deployment complete."
