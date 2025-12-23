@@ -13,8 +13,7 @@ jobs:
     env:
       VM_IP: ${{ secrets.VM_IP }}
       SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_KEY: ${{ 
-     
+      SSH_KEY: ${{-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAfD9L4/g
 +hR2v7sM1kqZ2NAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60
 wKMR2Oc4KejgJoe7PpiTDT3lDN1rAAAAoI0oy9VKXAcjHZnAqpbCOBWMdtJqgO37juV45h
@@ -22,7 +21,7 @@ wKMR2Oc4KejgJoe7PpiTDT3lDN1rAAAAoI0oy9VKXAcjHZnAqpbCOBWMdtJqgO37juV45h
 z0E6T/iP8XPEJIkt/pzblWqktq3/ob1aaP75/ZUKmJEMizmbCRJo4sruYP3KoQq8kzjShg
 DnX1Kdfk9+2FoVTD9r/9H96eep4lje0H5jHOI=
 -----END OPENSSH PRIVATE KEY-----
- }}
+}}
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
 
     steps:
