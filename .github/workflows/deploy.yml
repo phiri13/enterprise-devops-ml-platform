@@ -1,0 +1,45 @@
+param(
+    [string]$VM_IP,
+    [string]$SSH_USER,
+    [string]$SSH_KEY
+)
+
+Write-Host "=== CI/CD FastAPI Deployment ==="
+Write-Host "Target VM: $SSH_USER@$VM_IP"
+Write-Host "SSH Key: $SSH_KEY"
+
+# --- Step 1: Connect and deploy ---
+ssh -i $SSH_KEY -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" "bash -s" << 'EOF'
+  set -e
+  cd ~/enterprise-devops-ml-platform
+
+  # Ensure remote uses SSH instead of HTTPS
+  git remote set-url origin git@github.com:phiri13/enterprise-devops-ml-platform.git
+
+  git reset --hard
+  git pull origin feature/devops-platform
+
+  # Kill any process using port 8000
+  PID=$(lsof -ti:8000)
+  if [ ! -z "$PID" ]; then
+    echo "Killing processes on port 8000: $PID"
+    kill -9 $PID
+  fi
+
+  # Restart Docker
+  docker-compose down || true
+  docker-compose up -d --build
+
+  # Run deployment script
+  ./deployment.sh
+EOF
+
+# --- Step 2: Confirm deployment ---
+try {
+    $url = "http://$VM_IP:8000/health"
+    $health = Invoke-RestMethod -Uri $url -TimeoutSec 10
+    Write-Host "Health check response:" $health
+    Write-Host "✅ Deployment complete."
+} catch {
+    Write-Host "❌ Health check failed:" $_.Exception.Message
+}
