@@ -1,73 +1,31 @@
-name: CI/CD - FastAPI Deployment
+- name: Deploy to VM
+  run: |
+    ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" << 'REMOTE'
+      set -euxo pipefail
 
-on:
-  push:
-    branches:
-      - feature/devops-platform
-  workflow_dispatch:
+      echo "📂 Moving to repo"
+      cd /home/azureuser/enterprise-devops-ml-platform
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+      echo "🔄 Updating code"
+      git fetch origin
+      git reset --hard origin/feature/devops-platform
 
-    env:
-      VM_IP: ${{ secrets.VM_IP }}
-      SSH_USER: ${{ secrets.SSH_USER }}
-      REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
-      BRANCH: feature/devops-platform
-      MAX_HEALTH_RETRIES: 15
-      HEALTH_SLEEP_SEC: 2
+      echo "🐳 Checking Docker"
+      docker --version
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      echo "🐳 Checking docker-compose"
+      if ! command -v docker-compose >/dev/null 2>&1; then
+        echo "Installing docker-compose..."
+        sudo apt update
+        sudo apt install -y docker-compose
+      fi
 
-      - name: Validate required secrets
-        run: |
-          if [ -z "${{ secrets.VM_IP }}" ] || [ -z "${{ secrets.SSH_USER }}" ] || [ -z "${{ secrets.SSH_KEY }}" ]; then
-            echo "Missing required secrets" >&2
-            exit 1
-          fi
+      echo "🛑 Stopping old containers"
+      docker-compose down || true
 
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.SSH_KEY }}
+      echo "🚀 Building and starting containers"
+      docker-compose up -d --build
 
-      - name: Deploy to VM
-        run: |
-          ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" << 'REMOTE'
-            set -euo pipefail
-            cd /home/azureuser/enterprise-devops-ml-platform || { echo "Repo path missing"; exit 2; }
-            git fetch origin --depth=1
-            git reset --hard origin/feature/devops-platform
-
-            # Kill processes on port 8000
-            if command -v lsof >/dev/null 2>&1; then
-              PID=$(lsof -ti:8000 || true)
-              [ -n "$PID" ] && kill -9 $PID || true
-            fi
-
-            # Restart Docker Compose containers
-            docker-compose down || true
-            docker-compose up -d --build
-
-            # Run deployment script if exists
-            [ -f deployment.sh ] && chmod +x deployment.sh && ./deployment.sh || echo "No deployment.sh found"
-          REMOTE
-
-      - name: Confirm deployment
-        run: |
-          for i in $(seq 1 $MAX_HEALTH_RETRIES); do
-            if curl -fsS http://$VM_IP:8000/health >/dev/null 2>&1; then
-              echo "✅ API is healthy (attempt $i)"
-              exit 0
-            fi
-            echo "⏳ attempt $i/$MAX_HEALTH_RETRIES - waiting $HEALTH_SLEEP_SEC sec..."
-            sleep $HEALTH_SLEEP_SEC
-          done
-          echo "❌ Health check failed" >&2
-          exit 1
-
-      - name: Deployment complete
-        run: echo "🎉 Deployment to $VM_IP completed successfully."
+      echo "✅ Containers running"
+      docker ps
+    REMOTE
