@@ -1,3 +1,4 @@
+# ...existing code...
 name: CI/CD - FastAPI Deployment
 
 on:
@@ -13,15 +14,6 @@ jobs:
     env:
       VM_IP: ${{ secrets.VM_IP }}
       SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_KEY: ${{-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAfD9L4/g
-+hR2v7sM1kqZ2NAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60
-wKMR2Oc4KejgJoe7PpiTDT3lDN1rAAAAoI0oy9VKXAcjHZnAqpbCOBWMdtJqgO37juV45h
-1D8V3gd5zvZV3ARQ0XfHhJkP4gbk8+HMJpRCnKEsWEedPuapMCHrDCArXBhI7Z4V2cFV8q
-z0E6T/iP8XPEJIkt/pzblWqktq3/ob1aaP75/ZUKmJEMizmbCRJo4sruYP3KoQq8kzjShg
-DnX1Kdfk9+2FoVTD9r/9H96eep4lje0H5jHOI=
------END OPENSSH PRIVATE KEY-----
-}}
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
 
     steps:
@@ -31,44 +23,31 @@ DnX1Kdfk9+2FoVTD9r/9H96eep4lje0H5jHOI=
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
-          ssh-private-key: ${{ -----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAfD9L4/g
-+hR2v7sM1kqZ2NAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60
-wKMR2Oc4KejgJoe7PpiTDT3lDN1rAAAAoI0oy9VKXAcjHZnAqpbCOBWMdtJqgO37juV45h
-1D8V3gd5zvZV3ARQ0XfHhJkP4gbk8+HMJpRCnKEsWEedPuapMCHrDCArXBhI7Z4V2cFV8q
-z0E6T/iP8XPEJIkt/pzblWqktq3/ob1aaP75/ZUKmJEMizmbCRJo4sruYP3KoQq8kzjShg
-DnX1Kdfk9+2FoVTD9r/9H96eep4lje0H5jHOI=
------END OPENSSH PRIVATE KEY-----
- }}
+          ssh-private-key: ${{ secrets.SSH_KEY }}
 
       - name: Deploy to VM
         run: |
           echo "Connecting to VM and updating code..."
-          ssh -o StrictHostKeyChecking=no $SSH_USER@$VM_IP '
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" "
             set -e
-            cd ~/enterprise-devops-ml-platform
+            cd \"$REPO_PATH\"
             git reset --hard
             git pull origin feature/devops-platform
 
-            # Kill any process using port 8000
-            PID=$(lsof -ti:8000)
-            if [ ! -z "$PID" ]; then
-              echo "Killing processes on port 8000: $PID"
-              kill -9 $PID
+            PID=\$(lsof -ti:8000)
+            if [ ! -z \"\$PID\" ]; then
+              echo \"Killing processes on port 8000: \$PID\"
+              kill -9 \$PID
             fi
 
-            # Stop Docker if running
             docker-compose down || true
-
-            # Build and start containers
             docker-compose up -d --build
-
-            # Run deployment script
             ./deployment.sh
-          '
+          "
 
       - name: Confirm deployment
         run: |
           echo "Checking health endpoint..."
           curl -s http://$VM_IP:8000/health
           echo "✅ Deployment complete."
+# ...existing code...
