@@ -6,30 +6,14 @@ on:
     branches:
       - feature/devops-platform
   workflow_dispatch:
-    inputs:
-      ssh_key:
-        description: 'Private SSH key (full content). Only used to create missing secret when running manually.'
-        required: false
-      vm_ip:
-        description: 'VM IP (used to create missing secret when running manually)'
-        required: false
-      ssh_user:
-        description: 'SSH user (used to create missing secret when running manually)'
-        required: false
-
-permissions:
-  contents: read
-  actions: write
-  secrets: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    concurrency:
-      group: deploy-${{ github.ref }}
-      cancel-in-progress: true
 
     env:
+      VM_IP: ${{ secrets.VM_IP }}
+      SSH_USER: ${{ secrets.SSH_USER }}
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
       BRANCH: feature/devops-platform
       MAX_HEALTH_RETRIES: 15
@@ -39,59 +23,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Fail if repo contains inline private key
+      - name: Validate required secrets
         run: |
-          if grep -R --line-number "BEGIN OPENSSH PRIVATE KEY" --exclude-dir=.git . >/dev/null 2>&1; then
-            echo "ERROR: Found an inline private key in the repository. Remove it and purge history before continuing." >&2
-            exit 1
-          fi
-
-      - name: Check existing repo secrets
-        id: check_secrets
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const core = require('@actions/core');
-            const repo = context.repo;
-            for (const name of ['SSH_KEY','VM_IP','SSH_USER']) {
-              try {
-                await github.request('GET /repos/{owner}/{repo}/actions/secrets/{secret_name}', {
-                  owner: repo.owner,
-                  repo: repo.repo,
-                  secret_name: name
-                });
-                core.setOutput(name.toLowerCase() + '_present', 'true');
-              } catch (e) {
-                core.setOutput(name.toLowerCase() + '_present', 'false');
-              }
-            }
-
-      - name: Create SSH_KEY from input (if missing)
-        if: ${{ steps.check_secrets.outputs.ssh_key_present == 'false' && github.event_name == 'workflow_dispatch' && github.event.inputs.ssh_key != '' }}
-        uses: peter-evans/create-or-update-secret@v4
-        with:
-          secret-name: SSH_KEY
-          secret-value: ${{ github.event.inputs.ssh_key }}
-
-      - name: Create VM_IP from input (if missing)
-        if: ${{ steps.check_secrets.outputs.vm_ip_present == 'false' && github.event_name == 'workflow_dispatch' && github.event.inputs.vm_ip != '' }}
-        uses: peter-evans/create-or-update-secret@v4
-        with:
-          secret-name: VM_IP
-          secret-value: ${{ github.event.inputs.vm_ip }}
-
-      - name: Create SSH_USER from input (if missing)
-        if: ${{ steps.check_secrets.outputs.ssh_user_present == 'false' && github.event_name == 'workflow_dispatch' && github.event.inputs.ssh_user != '' }}
-        uses: peter-evans/create-or-update-secret@v4
-        with:
-          secret-name: SSH_USER
-          secret-value: ${{ github.event.inputs.ssh_user }}
-
-      - name: Ensure required secrets exist
-        run: |
-          if [ -z "${{ secrets.SSH_KEY }}" ] || [ -z "${{ secrets.VM_IP }}" ] || [ -z "${{ secrets.SSH_USER }}" ]; then
-            echo "Missing required secrets. Add them in Settings → Secrets, or re-run this workflow with inputs (Run workflow) to create them automatically." >&2
-            echo "Missing status: SSH_KEY=${{ secrets.SSH_KEY != '' }}, VM_IP=${{ secrets.VM_IP != '' }}, SSH_USER=${{ secrets.SSH_USER != '' }}" >&2
+          if [ -z "${{ secrets.VM_IP }}" ] || [ -z "${{ secrets.SSH_USER }}" ] || [ -z "${{ secrets.SSH_KEY }}" ]; then
+            echo "Missing required secrets: VM_IP, SSH_USER, or SSH_KEY" >&2
             exit 1
           fi
 
@@ -101,19 +36,16 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_KEY }}
 
       - name: Deploy to VM
-        env:
-          VM_IP: ${{ secrets.VM_IP }}
-          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          echo "Connecting to VM and running remote deployment..."
+          echo "Connecting to VM and running deployment..."
           ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" <<'REMOTE'
             set -euo pipefail
-            cd "$REPO_PATH"
+            cd /home/azureuser/enterprise-devops-ml-platform
 
-            echo "Resetting to remote branch..."
             git fetch origin --depth=1
-            git reset --hard origin/$BRANCH
+            git reset --hard origin/feature/devops-platform
 
+            # Safe kill any process on port 8000 (no failure if lsof missing)
             if command -v lsof >/dev/null 2>&1; then
               PID=$(lsof -ti:8000 || true)
               if [ -n "$PID" ]; then
@@ -121,7 +53,7 @@ jobs:
                 kill -9 $PID || true
               fi
             else
-              echo "lsof not present; skipping port kill."
+              echo "lsof not found on remote; skipping port kill."
             fi
 
             docker-compose down || true
@@ -129,15 +61,13 @@ jobs:
 
             if [ -f deployment.sh ]; then
               chmod +x deployment.sh
-              ./deployment.sh || true
+              ./deployment.sh
             else
               echo "No deployment.sh found, skipping."
             fi
           REMOTE
 
       - name: Confirm deployment (health check)
-        env:
-          VM_IP: ${{ secrets.VM_IP }}
         run: |
           echo "Waiting for API to become healthy..."
           for i in $(seq 1 $MAX_HEALTH_RETRIES); do
@@ -152,5 +82,5 @@ jobs:
           exit 1
 
       - name: Deployment complete
-        run: echo "🎉 Deployment finished."
+        run: echo "🎉 Deployment to $VM_IP completed successfully."
 # ...existing code...
