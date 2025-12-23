@@ -1,31 +1,13 @@
 - name: Deploy to VM
-  run: |
-    ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" << 'REMOTE'
-      set -euxo pipefail
-
-      echo "📂 Moving to repo"
-      cd /home/azureuser/enterprise-devops-ml-platform
-
-      echo "🔄 Updating code"
-      git fetch origin
-      git reset --hard origin/feature/devops-platform
-
-      echo "🐳 Checking Docker"
-      docker --version
-
-      echo "🐳 Checking docker-compose"
-      if ! command -v docker-compose >/dev/null 2>&1; then
-        echo "Installing docker-compose..."
-        sudo apt update
-        sudo apt install -y docker-compose
-      fi
-
-      echo "🛑 Stopping old containers"
-      docker-compose down || true
-
-      echo "🚀 Building and starting containers"
-      docker-compose up -d --build
-
-      echo "✅ Containers running"
-      docker ps
-    REMOTE
+  uses: appleboy/ssh-action@v1.0.3
+  with:
+    host: ${{ secrets.VM_IP }}
+    username: ${{ secrets.SSH_USER }}
+    key: ${{ secrets.SSH_KEY }}
+    script: |
+      set -e
+      cd ~/enterprise-devops-ml-platform
+      git pull origin feature/devops-platform
+      docker-compose down
+      docker-compose build
+      docker-compose up -d
