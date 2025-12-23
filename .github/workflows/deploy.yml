@@ -20,6 +20,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Validate required secrets
+        run: |
+          if [ -z "${{ secrets.VM_IP }}" ] || [ -z "${{ secrets.SSH_USER }}" ] || [ -z "${{ secrets.SSH_KEY }}" ]; then
+            echo "Missing required secrets: VM_IP, SSH_USER, or SSH_KEY" >&2
+            exit 1
+          fi
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
@@ -28,26 +35,26 @@ jobs:
       - name: Deploy to VM
         run: |
           echo "Connecting to VM and updating code..."
-          ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" "
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" <<'REMOTE'
             set -e
-            cd \"$REPO_PATH\"
+            cd "$REPO_PATH"
             git reset --hard
             git pull origin feature/devops-platform
 
-            PID=\$(lsof -ti:8000)
-            if [ ! -z \"\$PID\" ]; then
-              echo \"Killing processes on port 8000: \$PID\"
-              kill -9 \$PID
+            PID=$(lsof -ti:8000)
+            if [ ! -z "$PID" ]; then
+              echo "Killing processes on port 8000: $PID"
+              kill -9 $PID
             fi
 
             docker-compose down || true
             docker-compose up -d --build
             ./deployment.sh
-          "
+          REMOTE
 
       - name: Confirm deployment
         run: |
           echo "Checking health endpoint..."
-          curl -s http://$VM_IP:8000/health
+          curl -sS http://$VM_IP:8000/health || (echo "Health check failed" >&2; exit 1)
           echo "✅ Deployment complete."
 # ...existing code...
