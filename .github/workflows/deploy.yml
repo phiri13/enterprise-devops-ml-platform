@@ -1,4 +1,3 @@
-# ...existing code...
 name: CI/CD - FastAPI Deployment
 
 on:
@@ -13,7 +12,7 @@ jobs:
 
     env:
       VM_IP: ${{ secrets.VM_IP }}
-      SSH_USER: ${{ SHA256:cHY87zYiHclF6L3upYhYHwT0rfYgOlrgEyv3jq/BT48 }}
+      SSH_USER: ${{ secrets.SSH_USER }}
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
       BRANCH: feature/devops-platform
       MAX_HEALTH_RETRIES: 15
@@ -40,12 +39,13 @@ jobs:
           echo "Connecting to VM and running deployment..."
           ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" <<'REMOTE'
             set -euo pipefail
-            cd /home/azureuser/enterprise-devops-ml-platform
+            cd "$REPO_PATH"
 
+            # Reset local branch and pull latest
             git fetch origin --depth=1
             git reset --hard origin/feature/devops-platform
 
-            # Safe kill any process on port 8000 (no failure if lsof missing)
+            # Safely kill any process on port 8000 (skip if lsof missing)
             if command -v lsof >/dev/null 2>&1; then
               PID=$(lsof -ti:8000 || true)
               if [ -n "$PID" ]; then
@@ -53,12 +53,14 @@ jobs:
                 kill -9 $PID || true
               fi
             else
-              echo "lsof not found on remote; skipping port kill."
+              echo "lsof not found; skipping port kill."
             fi
 
+            # Stop and rebuild Docker containers
             docker-compose down || true
             docker-compose up -d --build
 
+            # Run deployment script if exists
             if [ -f deployment.sh ]; then
               chmod +x deployment.sh
               ./deployment.sh
@@ -83,4 +85,3 @@ jobs:
 
       - name: Deployment complete
         run: echo "🎉 Deployment to $VM_IP completed successfully."
-# ...existing code...
