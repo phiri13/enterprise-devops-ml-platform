@@ -28,7 +28,7 @@ jobs:
       - name: Deploy to VM
         run: |
           echo "Connecting to VM and updating code..."
-          ssh -o StrictHostKeyChecking=no $SSH_USER@$VM_IP << 'EOF'
+          ssh -o StrictHostKeyChecking=no $SSH_USER@$VM_IP '
             set -e
             cd ~/enterprise-devops-ml-platform
             git reset --hard
@@ -49,7 +49,7 @@ jobs:
 
             # Run deployment script
             ./deployment.sh
-EOF
+          '
 
       - name: Confirm deployment
         run: |
