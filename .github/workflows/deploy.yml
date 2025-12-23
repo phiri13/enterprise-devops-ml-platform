@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      VM_IP: ${{ secrets.VM_IP }}        # e.g., 102.37.218.130
-      SSH_USER: ${{ secrets.SSH_USER }}  # e.g., azureuser
+      VM_IP: ${{ secrets.VM_IP }}
+      SSH_USER: ${{ secrets.SSH_USER }}
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
       BRANCH: feature/devops-platform
       MAX_HEALTH_RETRIES: 15
@@ -25,7 +25,7 @@ jobs:
       - name: Validate required secrets
         run: |
           if [ -z "${{ secrets.VM_IP }}" ] || [ -z "${{ secrets.SSH_USER }}" ] || [ -z "${{ secrets.SSH_KEY }}" ]; then
-            echo "Missing required secrets: VM_IP, SSH_USER, or SSH_KEY" >&2
+            echo "Missing required secrets" >&2
             exit 1
           fi
 
@@ -36,56 +36,37 @@ jobs:
 
       - name: Deploy to VM
         run: |
-          echo "Connecting to VM and running deployment..."
-          ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" <<'REMOTE'
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" << 'REMOTE'
             set -euo pipefail
-            cd "$REPO_PATH" || { echo "Repo path missing"; exit 2; }
-
-            # Ensure correct branch
+            cd /home/azureuser/enterprise-devops-ml-platform || { echo "Repo path missing"; exit 2; }
             git fetch origin --depth=1
-            git reset --hard origin/$BRANCH
+            git reset --hard origin/feature/devops-platform
 
-            # Kill any process on port 8000 safely
+            # Kill processes on port 8000
             if command -v lsof >/dev/null 2>&1; then
               PID=$(lsof -ti:8000 || true)
-              if [ -n "$PID" ]; then
-                echo "Killing process(es) on port 8000: $PID"
-                kill -9 $PID || true
-              fi
-            else
-              echo "lsof not found; skipping port kill."
+              [ -n "$PID" ] && kill -9 $PID || true
             fi
 
-            # Docker cleanup and restart
-            if command -v docker-compose >/dev/null 2>&1; then
-              docker-compose down || true
-              docker-compose up -d --build
-            else
-              echo "docker-compose not found; please install it."
-              exit 3
-            fi
+            # Restart Docker Compose containers
+            docker-compose down || true
+            docker-compose up -d --build
 
-            # Run deployment script if present
-            if [ -f deployment.sh ]; then
-              chmod +x deployment.sh
-              ./deployment.sh || { echo "deployment.sh failed"; exit 4; }
-            else
-              echo "No deployment.sh found, skipping."
-            fi
+            # Run deployment script if exists
+            [ -f deployment.sh ] && chmod +x deployment.sh && ./deployment.sh || echo "No deployment.sh found"
           REMOTE
 
-      - name: Confirm deployment (health check)
+      - name: Confirm deployment
         run: |
-          echo "Waiting for API to become healthy..."
           for i in $(seq 1 $MAX_HEALTH_RETRIES); do
             if curl -fsS http://$VM_IP:8000/health >/dev/null 2>&1; then
               echo "✅ API is healthy (attempt $i)"
               exit 0
             fi
-            echo "⏳ attempt $i/$MAX_HEALTH_RETRIES - waiting $HEALTH_SLEEP_SEC seconds..."
+            echo "⏳ attempt $i/$MAX_HEALTH_RETRIES - waiting $HEALTH_SLEEP_SEC sec..."
             sleep $HEALTH_SLEEP_SEC
           done
-          echo "❌ Health check failed after $MAX_HEALTH_RETRIES retries" >&2
+          echo "❌ Health check failed" >&2
           exit 1
 
       - name: Deployment complete
