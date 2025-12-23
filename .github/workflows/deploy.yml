@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      VM_IP: ${{ secrets.VM_IP }}
-      SSH_USER: ${{ secrets.SSH_USER }}
+      VM_IP: ${{ secrets.VM_IP }}        # e.g., 102.37.218.130
+      SSH_USER: ${{ secrets.SSH_USER }}  # e.g., azureuser
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
       BRANCH: feature/devops-platform
       MAX_HEALTH_RETRIES: 15
@@ -39,13 +39,13 @@ jobs:
           echo "Connecting to VM and running deployment..."
           ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" <<'REMOTE'
             set -euo pipefail
-            cd "$REPO_PATH"
+            cd /home/azureuser/enterprise-devops-ml-platform
 
-            # Reset local branch and pull latest
+            # Reset code
             git fetch origin --depth=1
             git reset --hard origin/feature/devops-platform
 
-            # Safely kill any process on port 8000 (skip if lsof missing)
+            # Kill any process on port 8000 safely
             if command -v lsof >/dev/null 2>&1; then
               PID=$(lsof -ti:8000 || true)
               if [ -n "$PID" ]; then
@@ -56,11 +56,10 @@ jobs:
               echo "lsof not found; skipping port kill."
             fi
 
-            # Stop and rebuild Docker containers
             docker-compose down || true
             docker-compose up -d --build
 
-            # Run deployment script if exists
+            # Run deployment.sh only if it exists
             if [ -f deployment.sh ]; then
               chmod +x deployment.sh
               ./deployment.sh
