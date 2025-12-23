@@ -1,3 +1,4 @@
+# ...existing code...
 name: CI/CD - FastAPI Deployment
 
 on:
@@ -9,11 +10,15 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: true
 
     env:
       VM_IP: ${{ secrets.VM_IP }}
       SSH_USER: ${{ secrets.SSH_USER }}
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
+      BRANCH: feature/devops-platform
       MAX_HEALTH_RETRIES: 15
       HEALTH_SLEEP_SEC: 2
 
@@ -33,54 +38,60 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}
 
-      - name: Deploy to VM via SSH
+      - name: Deploy to VM
         run: |
-          echo "Starting remote deployment..."
-          ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" << 'REMOTE'
+          echo "Connecting to VM and running deployment..."
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$VM_IP" <<'REMOTE'
             set -euo pipefail
-            cd "$REPO_PATH"
 
-            echo "Resetting repository to remote state..."
-            git fetch origin
+            cd /home/azureuser/enterprise-devops-ml-platform
+
+            echo "Resetting to remote branch..."
+            git fetch origin --depth=1
             git reset --hard origin/feature/devops-platform
 
-            echo "Checking for processes on port 8000..."
+            # Safe kill any process on port 8000 (won't fail if lsof missing)
             if command -v lsof >/dev/null 2>&1; then
               PID=$(lsof -ti:8000 || true)
               if [ -n "$PID" ]; then
-                echo "Killing existing process(es) on port 8000: $PID"
-                kill -9 $PID
+                echo "Killing process(es) on port 8000: $PID"
+                kill -9 $PID || true
               fi
+            else
+              echo "lsof not found on remote; skipping port kill."
             fi
 
-            echo "Stopping any running Docker containers..."
+            echo "Stopping existing Docker containers..."
             docker-compose down || true
 
             echo "Building and starting containers..."
             docker-compose up -d --build
 
-            echo "Executing optional deployment.sh..."
+            echo "Executing optional deployment.sh (if present)..."
             if [ -f deployment.sh ]; then
               chmod +x deployment.sh
               ./deployment.sh
             else
               echo "No deployment.sh found, skipping."
             fi
-REMOTE
 
-      - name: Confirm FastAPI health
+            echo "Remote deploy finished."
+          REMOTE
+
+      - name: Confirm deployment (health check)
         run: |
-          echo "Waiting for API health check..."
+          echo "Waiting for API to become healthy..."
           for i in $(seq 1 $MAX_HEALTH_RETRIES); do
-            if curl -sS http://$VM_IP:8000/health; then
-              echo "✅ API is healthy"
+            if curl -fsS http://$VM_IP:8000/health >/dev/null 2>&1; then
+              echo "✅ API is healthy (attempt $i)"
               exit 0
             fi
-            echo "⏳ Waiting $HEALTH_SLEEP_SEC seconds..."
+            echo "⏳ attempt $i/$MAX_HEALTH_RETRIES - waiting $HEALTH_SLEEP_SEC seconds..."
             sleep $HEALTH_SLEEP_SEC
           done
-          echo "❌ Health check failed after $MAX_HEALTH_RETRIES retries"
+          echo "❌ Health check failed after $MAX_HEALTH_RETRIES retries" >&2
           exit 1
 
       - name: Deployment complete
-        run: echo "🎉 Deployment to VM $VM_IP completed successfully."
+        run: echo "🎉 Deployment to $VM_IP completed successfully."
+# ...existing code...
