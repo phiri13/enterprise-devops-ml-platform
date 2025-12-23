@@ -13,7 +13,7 @@ jobs:
     env:
       VM_IP: ${{ secrets.VM_IP }}
       SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_KEY: ${{ secrets.SSH_KEY }}
+      SSH_KEY: ${{ SHA256:cHY87zYiHclF6L3upYhYHwT0rfYgOlrgEyv3jq/BT48 }}
       REPO_PATH: /home/azureuser/enterprise-devops-ml-platform
 
     steps:
@@ -23,7 +23,7 @@ jobs:
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
-          ssh-private-key: ${{ env.SSH_KEY }}
+          ssh-private-key: ${{ SHA256:cHY87zYiHclF6L3upYhYHwT0rfYgOlrgEyv3jq/BT48 }}
 
       - name: Deploy to VM
         run: |
@@ -33,24 +33,19 @@ jobs:
             cd ~/enterprise-devops-ml-platform
             git reset --hard
             git pull origin feature/devops-platform
-
             # Kill any process using port 8000
             PID=$(lsof -ti:8000)
             if [ ! -z "$PID" ]; then
               echo "Killing processes on port 8000: $PID"
               kill -9 $PID
             fi
-
             # Stop Docker if running
             docker-compose down || true
-
             # Build and start containers
             docker-compose up -d --build
-
             # Run deployment script
             ./deployment.sh
           '
-
       - name: Confirm deployment
         run: |
           echo "Checking health endpoint..."
