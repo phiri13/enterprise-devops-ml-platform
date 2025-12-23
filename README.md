@@ -13,6 +13,17 @@ This service has been successfully deployed and exposed on Microsoft Azure.
 curl http://<public-ip>:8000/health
 
 
+Operational Issue: Port Collision
+
+During container orchestration, the API service failed to start due to port 8000 already being bound by an existing process.
+Root cause was a previously running service occupying the port.
+Resolution involved identifying the process via lsof and cleanly shutting down conflicting services before redeploying.
+
+This mirrors real-world production incidents and highlights the importance of port management and observability.
+
+
+
+
 # Enterprise DevOps ML Platform
 
 ## Overview
