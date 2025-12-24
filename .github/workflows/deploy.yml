@@ -1,9 +1,10 @@
-name: Deploy to VM
+name: Deploy FastAPI to Azure VM
 
 on:
   push:
     branches:
       - feature/devops-platform
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -13,20 +14,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 🔍 Debug step — verifies secrets are available
+      - name: Debug secrets presence
+        run: |
+          echo "VM_IP set? -> ${{ secrets.VM_IP != '' }}"
+          echo "SSH_USER set? -> ${{ secrets.SSH_USER != '' }}"
+          echo "SSH_KEY set? -> ${{ secrets.SSH_KEY != '' }}"
+
+      # 🚀 Deploy to Azure VM
       - name: Deploy application on Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ 102.37.218.130 }}
-          username: ${{ azureuser }}
-          key: ${{ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60wKMR2Oc4KejgJoe7PpiTDT3lDN1r }}
+          host: ${{ secrets.VM_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
           script: |
             set -e
-
             cd ~/enterprise-devops-ml-platform
 
-            git pull origin feature/devops-platform
+            echo "Pulling latest code..."
+            git fetch origin
+            git reset --hard origin/feature/devops-platform
 
+            echo "Restarting containers..."
             docker-compose down || true
             docker-compose build
             docker-compose up -d
+
+            echo "Deployment finished successfully."
 
