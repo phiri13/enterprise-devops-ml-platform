@@ -1,13 +1,13 @@
-name: Deploy to VM
-  uses:appleboy/ssh-action@v1.0.3
-  with:
-    host: ${{ secrets.VM_IP }}
-    username: ${{ azureuser }}
-    key: ${{ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60wKMR2Oc4KejgJoe7PpiTDT3lDN1r }}
-    script: |
-      set -e
-      cd ~/enterprise-devops-ml-platform
-      git pull origin feature/devops-platform
-      docker-compose down
-      docker-compose build
-      docker-compose up -d
+                  name: Deploy to VM
+                  uses : appleboy/ssh-action@v1.0.3
+                  with:
+                  host: ${{ secrets.VM_IP }}
+                  username: ${{ azureuser }}
+                  key: ${{ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKkYf1vkTelxJc60wKMR2Oc4KejgJoe7PpiTDT3lDN1r }}
+                   script: |
+                      set -e
+                      cd ~/enterprise-devops-ml-platform
+                      git pull origin feature/devops-platform
+                      docker-compose down
+                      docker-compose build
+                      docker-compose up -d
