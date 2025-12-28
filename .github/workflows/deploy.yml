@@ -14,14 +14,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🔍 Debug secrets (correct names)
       - name: Debug secrets presence
         run: |
           echo "VM_HOST set? -> ${{ secrets.VM_HOST != '' }}"
           echo "VM_USER set? -> ${{ secrets.VM_USER != '' }}"
           echo "SSH_PRIVATE_KEY set? -> ${{ secrets.SSH_PRIVATE_KEY != '' }}"
 
-      # 🚀 Deploy to Azure VM
       - name: Deploy application on Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -30,19 +28,19 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-
             echo "Connected to VM"
-
             cd ~/enterprise-devops-ml-platform
-
             echo "Pulling latest code..."
             git fetch origin
             git checkout feature/devops-platform
             git reset --hard origin/feature/devops-platform
-
             echo "Restarting containers..."
-            docker- compose down || true
-            docker compose build
-            docker compose up -d
-
+            docker-compose down || true
+            docker-compose build
+            docker-compose up -d
             echo "Deployment finished successfully"
+
+
+You should see:
+```
+✅ Deploy application on Azure VM - SUCCESS
