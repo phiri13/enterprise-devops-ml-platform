@@ -1,3 +1,10 @@
+# Enterprise DevOps ML Platform
+
+[CI/CD Status](https://github.com/phiri13/enterprise-devops-ml-platform/actions/workflows/deploy.yml/badge.svg)
+
+**Live Demo:** http://102.37.218.130:8000/health
+ 
+ 
  🚀 Deployment Status (Live)
 
 This service has been successfully deployed and exposed on Microsoft Azure.
