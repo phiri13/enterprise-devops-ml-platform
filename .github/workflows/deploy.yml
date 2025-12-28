@@ -14,32 +14,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🔍 Debug step — verifies secrets are available
+      # 🔍 Debug secrets (correct names)
       - name: Debug secrets presence
         run: |
-          echo "VM_IP set? -> ${{ secrets.VM_IP != '' }}"
-          echo "SSH_USER set? -> ${{ secrets.SSH_USER != '' }}"
-          echo "SSH_KEY set? -> ${{ secrets.SSH_KEY != '' }}"
+          echo "VM_HOST set? -> ${{ secrets.VM_HOST != '' }}"
+          echo "VM_USER set? -> ${{ secrets.VM_USER != '' }}"
+          echo "SSH_PRIVATE_KEY set? -> ${{ secrets.SSH_PRIVATE_KEY != '' }}"
 
       # 🚀 Deploy to Azure VM
       - name: Deploy application on Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
+
+            echo "Connected to VM"
+
             cd ~/enterprise-devops-ml-platform
 
             echo "Pulling latest code..."
             git fetch origin
+            git checkout feature/devops-platform
             git reset --hard origin/feature/devops-platform
 
             echo "Restarting containers..."
-            docker-compose down || true
-            docker-compose build
-            docker-compose up -d
+            docker compose down || true
+            docker compose build
+            docker compose up -d
 
-            echo "Deployment finished successfully."
-
+            echo "Deployment finished successfully"
