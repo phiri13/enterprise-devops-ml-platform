@@ -41,6 +41,4 @@ jobs:
             echo "Deployment finished successfully"
 
 
-You should see:
-```
-✅ Deploy application on Azure VM - SUCCESS
+
