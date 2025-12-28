@@ -41,7 +41,7 @@ jobs:
             git reset --hard origin/feature/devops-platform
 
             echo "Restarting containers..."
-            docker compose down || true
+            docker- compose down || true
             docker compose build
             docker compose up -d
 
